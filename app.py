@@ -229,7 +229,7 @@ def call_claude(history, role, lang):
     except Exception:
         api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
-        st.error("❌ GEMINI_API_KEY not found. Go to app Settings → Secrets and add your key.")
+        api_key = "AIzaSyCj7FQWH1369QGdZvhAGyhi4Tx5yjYaAi4"
         st.stop()
 
     system = SYSTEM_PROMPT + f"\n\nUser role: {'Police Officer' if role == 'officer' else 'Citizen/Complainant'}. Interface language: {lang}."
