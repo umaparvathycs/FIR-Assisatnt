@@ -223,7 +223,12 @@ def gen_fir_no():
     return f"KL-{now.year}/{now.month:02d}/{random.randint(1000,9999)}"
 
 def call_claude(history, role, lang):
-    client = anthropic.Anthropic()
+    import os
+    api_key = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        st.error("❌ ANTHROPIC_API_KEY not found. Go to app Settings → Secrets and add your key.")
+        st.stop()
+    client = anthropic.Anthropic(api_key=api_key)
     system = SYSTEM_PROMPT + f"\n\nUser role: {'Police Officer' if role == 'officer' else 'Citizen/Complainant'}. Interface language: {lang}."
     resp = client.messages.create(
         model="claude-opus-4-5",
