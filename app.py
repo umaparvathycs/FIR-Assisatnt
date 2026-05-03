@@ -1,5 +1,5 @@
 import streamlit as st
-from google import genai
+import requests
 import json
 import re
 import random
@@ -231,30 +231,30 @@ def call_claude(history, role, lang):
     if not api_key:
         st.error("❌ GEMINI_API_KEY not found. Go to app Settings → Secrets and add your key.")
         st.stop()
-    client = genai.Client(api_key=api_key)
+
     system = SYSTEM_PROMPT + f"\n\nUser role: {'Police Officer' if role == 'officer' else 'Citizen/Complainant'}. Interface language: {lang}."
-    # Build conversation for Gemini
-    gemini_history = []
-    for msg in history[:-1]:
-        gemini_history.append(
-            genai.types.Content(
-                role="user" if msg["role"] == "user" else "model",
-                parts=[genai.types.Part(text=msg["content"])]
-            )
-        )
-    last_msg = history[-1]["content"] if history else ""
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=gemini_history + [genai.types.Content(
-            role="user",
-            parts=[genai.types.Part(text=last_msg)]
-        )],
-        config=genai.types.GenerateContentConfig(
-            system_instruction=system,
-            max_output_tokens=1000,
-        )
-    )
-    return response.text
+
+    # Build contents for Gemini REST API
+    contents = []
+    # Add system as first user message
+    for msg in history:
+        contents.append({
+            "role": "user" if msg["role"] == "user" else "model",
+            "parts": [{"text": msg["content"]}]
+        })
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    payload = {
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": contents,
+        "generationConfig": {"maxOutputTokens": 1000}
+    }
+    resp = requests.post(url, json=payload, timeout=30)
+    if resp.status_code != 200:
+        st.error(f"❌ Gemini API error {resp.status_code}: Check your API key in Secrets.")
+        st.stop()
+    data = resp.json()
+    return data["candidates"][0]["content"]["parts"][0]["text"]
 
 def parse_response(raw):
     if "|||JSON_START|||" in raw:
