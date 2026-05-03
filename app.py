@@ -223,14 +223,7 @@ def gen_fir_no():
     return f"KL-{now.year}/{now.month:02d}/{random.randint(1000,9999)}"
 
 def call_claude(history, role, lang):
-    import os
-    try:
-        api_key = st.secrets["GEMINI_API_KEY"]
-    except Exception:
-        api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        api_key = "AIzaSyCj7FQWH1369QGdZvhAGyhi4Tx5yjYaAi4"
-        st.stop()
+    api_key = "PASTE_YOUR_GEMINI_KEY_HERE"
 
     system = SYSTEM_PROMPT + f"\n\nUser role: {'Police Officer' if role == 'officer' else 'Citizen/Complainant'}. Interface language: {lang}."
 
@@ -560,16 +553,25 @@ with col_chat:
         for i, p in enumerate(prompts):
             with q_cols[i % 2]:
                 if st.button(p, key=f"qp_{i}", use_container_width=True):
-                    st.session_state.messages.append({"role": "user", "content": p})
-                    st.session_state.history.append({"role": "user", "content": p})
-                    with st.spinner(t.get("thinking", "Thinking...")):
-                        raw = call_claude(st.session_state.history, st.session_state.role, st.session_state.lang)
-                    msg, fir = parse_response(raw)
-                    st.session_state.messages.append({"role": "assistant", "content": msg})
-                    st.session_state.history.append({"role": "assistant", "content": raw})
-                    if fir:
-                        st.session_state.fir_data = fir
+                    st.session_state["pending_input"] = p
                     st.rerun()
+
+    # Process any pending input (from quick prompts)
+    if st.session_state.get("pending_input"):
+        user_msg = st.session_state.pop("pending_input")
+        st.session_state.messages.append({"role": "user", "content": user_msg})
+        st.session_state.history.append({"role": "user", "content": user_msg})
+        with st.spinner("⏳ Preparing your FIR..."):
+            try:
+                raw = call_claude(st.session_state.history, st.session_state.role, st.session_state.lang)
+                msg, fir = parse_response(raw)
+                st.session_state.messages.append({"role": "assistant", "content": msg})
+                st.session_state.history.append({"role": "assistant", "content": raw})
+                if fir:
+                    st.session_state.fir_data = fir
+            except Exception as e:
+                st.session_state.messages.append({"role": "assistant", "content": f"❌ Error: {str(e)}"})
+        st.rerun()
 
     # Chat history
     chat_container = st.container(height=400)
@@ -603,13 +605,16 @@ with col_chat:
     if submitted and user_input.strip():
         st.session_state.messages.append({"role": "user", "content": user_input.strip()})
         st.session_state.history.append({"role": "user", "content": user_input.strip()})
-        with st.spinner("⏳ " + t.get("thinking", "Preparing your FIR...")):
-            raw = call_claude(st.session_state.history, st.session_state.role, st.session_state.lang)
-        msg, fir = parse_response(raw)
-        st.session_state.messages.append({"role": "assistant", "content": msg})
-        st.session_state.history.append({"role": "assistant", "content": raw})
-        if fir:
-            st.session_state.fir_data = fir
+        with st.spinner("⏳ Preparing your FIR..."):
+            try:
+                raw = call_claude(st.session_state.history, st.session_state.role, st.session_state.lang)
+                msg, fir = parse_response(raw)
+                st.session_state.messages.append({"role": "assistant", "content": msg})
+                st.session_state.history.append({"role": "assistant", "content": raw})
+                if fir:
+                    st.session_state.fir_data = fir
+            except Exception as e:
+                st.session_state.messages.append({"role": "assistant", "content": f"❌ Error: {str(e)}"})
         st.rerun()
 
 # ── FIR Preview ───────────────────────────────────────────────────────────────
