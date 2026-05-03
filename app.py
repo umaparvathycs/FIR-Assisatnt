@@ -223,7 +223,7 @@ def gen_fir_no():
     return f"KL-{now.year}/{now.month:02d}/{random.randint(1000,9999)}"
 
 def call_claude(history, role, lang):
-    api_key = "PASTE_YOUR_GEMINI_KEY_HERE"
+    api_key = "AIzaSyCj7FQWH1369QGdZvhAGyhi4Tx5yjYaAi4"
 
     system = SYSTEM_PROMPT + f"\n\nUser role: {'Police Officer' if role == 'officer' else 'Citizen/Complainant'}. Interface language: {lang}."
 
