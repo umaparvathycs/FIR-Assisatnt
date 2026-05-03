@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 import json
 import re
 import random
@@ -224,27 +224,37 @@ def gen_fir_no():
 
 def call_claude(history, role, lang):
     import os
-    api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         st.error("❌ GEMINI_API_KEY not found. Go to app Settings → Secrets and add your key.")
         st.stop()
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
     system = SYSTEM_PROMPT + f"\n\nUser role: {'Police Officer' if role == 'officer' else 'Citizen/Complainant'}. Interface language: {lang}."
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        system_instruction=system
-    )
-    # Convert history to Gemini format
+    # Build conversation for Gemini
     gemini_history = []
     for msg in history[:-1]:
-        gemini_history.append({
-            "role": "user" if msg["role"] == "user" else "model",
-            "parts": [msg["content"]]
-        })
-    chat = model.start_chat(history=gemini_history)
+        gemini_history.append(
+            genai.types.Content(
+                role="user" if msg["role"] == "user" else "model",
+                parts=[genai.types.Part(text=msg["content"])]
+            )
+        )
     last_msg = history[-1]["content"] if history else ""
-    resp = chat.send_message(last_msg)
-    return resp.text
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=gemini_history + [genai.types.Content(
+            role="user",
+            parts=[genai.types.Part(text=last_msg)]
+        )],
+        config=genai.types.GenerateContentConfig(
+            system_instruction=system,
+            max_output_tokens=1000,
+        )
+    )
+    return response.text
 
 def parse_response(raw):
     if "|||JSON_START|||" in raw:
